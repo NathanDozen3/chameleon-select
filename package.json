@@ -1,0 +1,13 @@
+{
+  "name": "chameleon-select",
+  "version": "1.0.0",
+  "description": "Chameleon Select library",
+  "main": "chameleon-select.js",
+  "scripts": {
+    "minify": "terser chameleon-select.js -c -m -o chameleon-select.min.js",
+    "build": "node scripts/build.js"
+  },
+  "devDependencies": {
+    "terser": "^5.20.1"
+  }
+}
