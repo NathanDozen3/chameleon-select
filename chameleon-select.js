@@ -63,7 +63,7 @@
 				top: 100%;
 				left: 0;
 				right: 0;
-				z-index: 9999;
+				z-index: var(--ch-z-index, 1);
 				display: none;
 				max-height: 250px;
 				overflow-y: auto;
@@ -154,6 +154,17 @@
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
 				refStyle.backgroundColor === 'initial';
 
+			// Calculate dynamic z-index based on form siblings
+			const getDynamicZIndex = () => {
+				let highest = 1;
+				const siblings = parentForm.querySelectorAll('*');
+				siblings.forEach(el => {
+					const z = parseInt(window.getComputedStyle(el).zIndex);
+					if (!isNaN(z) && z > highest) highest = z;
+				});
+				return highest + 1;
+			};
+
 			const styles = {
 				'--ch-width': (selectEl.offsetWidth || 200) + 'px',
 				'--ch-font-family': refStyle.fontFamily,
@@ -170,7 +181,8 @@
 				'--ch-focus-outline': focusProps.outline,
 				'--ch-focus-offset': focusProps.outlineOffset,
 				'--ch-focus-shadow': focusProps.boxShadow,
-				'--ch-focus-border': focusProps.borderColor
+				'--ch-focus-border': focusProps.borderColor,
+				'--ch-z-index': getDynamicZIndex()
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			
@@ -202,8 +214,15 @@
 				e.stopPropagation();
 				const isOpen = menu.style.display === 'block';
 				document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
-				menu.style.display = isOpen ? 'none' : 'block';
-				if (!isOpen) wrapper.classList.add('is-focused');
+				
+				if (!isOpen) {
+					// Refresh z-index in case DOM changed
+					wrapper.style.setProperty('--ch-z-index', getDynamicZIndex());
+					menu.style.display = 'block';
+					wrapper.classList.add('is-focused');
+				} else {
+					menu.style.display = 'none';
+				}
 			};
 
 			trigger.onclick = toggleMenu;
@@ -219,8 +238,8 @@
 				let currIndex = selectEl.selectedIndex;
 				switch(e.key) {
 					case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
-					case 'ArrowDown': e.preventDefault(); if(!isOpen) menu.style.display='block'; if(currIndex < items.length - 1) selectByIndex(currIndex + 1); break;
-					case 'ArrowUp': e.preventDefault(); if(!isOpen) menu.style.display='block'; if(currIndex > 0) selectByIndex(currIndex - 1); break;
+					case 'ArrowDown': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex < items.length - 1) selectByIndex(currIndex + 1); break;
+					case 'ArrowUp': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex > 0) selectByIndex(currIndex - 1); break;
 					case 'Escape': menu.style.display = 'none'; break;
 				}
 			};
