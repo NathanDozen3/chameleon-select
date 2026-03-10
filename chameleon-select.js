@@ -8,25 +8,90 @@
 		const style = document.createElement('style');
 		style.id = 'chameleon-select-styles';
 		style.textContent = `
-			.chameleon-wrapper { position: relative; cursor: pointer; display: inline-block; vertical-align: middle; width: var(--ch-width, 200px); font-family: var(--ch-font-family, inherit); }
-			.chameleon-wrapper:focus { outline: none; }
+			.chameleon-wrapper {
+				position: relative;
+				cursor: pointer;
+				display: inline-block;
+				vertical-align: middle;
+				width: var(--ch-width, 200px);
+				font-family: var(--ch-font-family, inherit);
+			}
+
+			.chameleon-wrapper:focus {
+				outline: none;
+			}
 			
-			/* Mimic the refInput focus style dynamically */
-			.chameleon-wrapper.is-focused .chameleon-trigger { 
+			.chameleon-wrapper.is-focused .chameleon-trigger {
 				outline: var(--ch-focus-outline);
 				outline-offset: var(--ch-focus-offset);
 				box-shadow: var(--ch-focus-shadow);
 				border-color: var(--ch-focus-border) !important;
 			}
 
-			.chameleon-trigger { display: flex; align-items: center; justify-content: space-between; background-color: var(--ch-bg); border: var(--ch-border); border-radius: var(--ch-border-radius); padding: var(--ch-padding); font-size: var(--ch-font-size); height: var(--ch-height); line-height: var(--ch-line-height); box-sizing: border-box; color: var(--ch-color); transition: border-color 0.2s, box-shadow 0.2s; }
-			.chameleon-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-			.chameleon-arrow { margin-left: 8px; opacity: 0.5; font-size: 0.8em; pointer-events: none; }
-			.chameleon-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 9999; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background-color: var(--ch-bg-fallback, #fff); border: var(--ch-border); border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius); }
-			.chameleon-menu::-webkit-scrollbar { width: 4px; }
-			.chameleon-menu::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-			.chameleon-select-item { padding: var(--ch-padding); color: var(--ch-color-item); transition: background 0.2s; }
-			.chameleon-select-item:hover, .chameleon-select-item.is-highlighted { background-color: rgba(0,0,0,0.05) !important; }
+			.chameleon-trigger {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				background-color: var(--ch-bg);
+				border: var(--ch-border);
+				border-radius: var(--ch-border-radius);
+				padding: var(--ch-padding);
+				font-size: var(--ch-font-size);
+				height: var(--ch-height);
+				line-height: var(--ch-line-height);
+				box-sizing: border-box;
+				color: var(--ch-color);
+				transition: border-color 0.2s, box-shadow 0.2s;
+			}
+
+			.chameleon-text {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				pointer-events: none;
+			}
+
+			.chameleon-arrow {
+				margin-left: 8px;
+				opacity: 0.5;
+				font-size: 0.8em;
+				pointer-events: none;
+			}
+
+			.chameleon-menu {
+				position: absolute;
+				top: 100%;
+				left: 0;
+				right: 0;
+				z-index: 9999;
+				display: none;
+				max-height: 250px;
+				overflow-y: auto;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+				background-color: var(--ch-bg-fallback, #fff);
+				border: var(--ch-border);
+				border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius);
+			}
+
+			.chameleon-menu::-webkit-scrollbar {
+				width: 4px;
+			}
+
+			.chameleon-menu::-webkit-scrollbar-thumb {
+				background: #ccc;
+				border-radius: 10px;
+			}
+
+			.chameleon-select-item {
+				padding: var(--ch-padding);
+				color: var(--ch-color-item);
+				transition: background 0.2s;
+			}
+
+			.chameleon-select-item:hover,
+			.chameleon-select-item.is-highlighted {
+				background-color: rgba(0,0,0,0.05) !important;
+			}
 		`;
 		document.head.appendChild(style);
 
@@ -36,12 +101,8 @@
 			selectEl.dataset.chameleonLoaded = "true";
 			
 			const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
-			
-			// 1. Capture Normal Styles
 			const refStyle = window.getComputedStyle(refInput);
 			
-			// 2. Capture Focus Styles (The Trick)
-			// We temporarily focus the refInput to see what happens to it
 			const originalScroll = window.scrollY;
 			refInput.focus({ preventScroll: true });
 			const focusStyle = window.getComputedStyle(refInput);
@@ -53,7 +114,7 @@
 				borderColor: focusStyle.borderColor
 			};
 			refInput.blur();
-			window.scrollTo(0, originalScroll); // Just in case
+			window.scrollTo(0, originalScroll);
 
 			const getPlaceholderColor = () => {
 				const temp = document.createElement('input');
@@ -89,12 +150,10 @@
 			const menu = document.createElement('div');
 			menu.className = 'chameleon-menu';
 
-            // Check if the background is transparent or "none"
-            const isTransparent = refStyle.backgroundColor === 'transparent' || 
-                refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
-                refStyle.backgroundColor === 'initial';
+			const isTransparent = refStyle.backgroundColor === 'transparent' || 
+				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
+				refStyle.backgroundColor === 'initial';
 
-			// Set Variables (Including Focus Props)
 			const styles = {
 				'--ch-width': (selectEl.offsetWidth || 200) + 'px',
 				'--ch-font-family': refStyle.fontFamily,
@@ -108,7 +167,6 @@
 				'--ch-color': isPlaceholder ? placeholderColor : activeColor,
 				'--ch-color-item': activeColor,
 				'--ch-bg-fallback': isTransparent ? '#ffffff' : refStyle.backgroundColor,
-				// Focus styles
 				'--ch-focus-outline': focusProps.outline,
 				'--ch-focus-offset': focusProps.outlineOffset,
 				'--ch-focus-shadow': focusProps.boxShadow,
@@ -150,14 +208,12 @@
 
 			trigger.onclick = toggleMenu;
 			
-			// Manage Focus Classes
 			wrapper.onfocus = () => wrapper.classList.add('is-focused');
 			wrapper.onblur = () => {
 				wrapper.classList.remove('is-focused');
 				menu.style.display = 'none';
 			}
 
-			// Keyboard Nav
 			wrapper.onkeydown = (e) => {
 				const isOpen = menu.style.display === 'block';
 				let currIndex = selectEl.selectedIndex;
@@ -174,7 +230,6 @@
 			wrapper.append(trigger, menu);
 			selectEl.parentNode.insertBefore(wrapper, selectEl);
 
-			// Add to registry for resize handling
 			activeChameleons.push({ wrapper, selectEl });
 		};
 		
@@ -188,13 +243,11 @@
 		});
 		observer.observe(document.body, { childList: true, subtree: true });
 
-		// Resize Listener with Debounce
 		let resizeTimer;
 		window.addEventListener('resize', () => {
 			clearTimeout(resizeTimer);
 			resizeTimer = setTimeout(() => {
 				activeChameleons.forEach(({ wrapper, selectEl }) => {
-					// Momentarily show select to measure its responsive width
 					selectEl.style.display = 'inline-block';
 					const newWidth = selectEl.offsetWidth;
 					selectEl.style.display = 'none';
