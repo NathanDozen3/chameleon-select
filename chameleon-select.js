@@ -1,4 +1,7 @@
 (function() {
+	// Registry to track instances for resizing
+	const activeChameleons = [];
+
 	const init = () => {
 		if (document.getElementById('chameleon-select-styles')) return;
 
@@ -86,6 +89,11 @@
 			const menu = document.createElement('div');
 			menu.className = 'chameleon-menu';
 
+            // Check if the background is transparent or "none"
+            const isTransparent = refStyle.backgroundColor === 'transparent' || 
+                refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
+                refStyle.backgroundColor === 'initial';
+
 			// Set Variables (Including Focus Props)
 			const styles = {
 				'--ch-width': (selectEl.offsetWidth || 200) + 'px',
@@ -99,7 +107,7 @@
 				'--ch-line-height': refStyle.lineHeight,
 				'--ch-color': isPlaceholder ? placeholderColor : activeColor,
 				'--ch-color-item': activeColor,
-				'--ch-bg-fallback': (refStyle.backgroundColor.includes('rgba(0,0,0,0)') ? '#fff' : refStyle.backgroundColor),
+				'--ch-bg-fallback': isTransparent ? '#ffffff' : refStyle.backgroundColor,
 				// Focus styles
 				'--ch-focus-outline': focusProps.outline,
 				'--ch-focus-offset': focusProps.outlineOffset,
@@ -165,6 +173,9 @@
 			trigger.append(textSpan, arrow);
 			wrapper.append(trigger, menu);
 			selectEl.parentNode.insertBefore(wrapper, selectEl);
+
+			// Add to registry for resize handling
+			activeChameleons.push({ wrapper, selectEl });
 		};
 		
 		document.querySelectorAll('select').forEach(transform);
@@ -176,6 +187,21 @@
 			}));
 		});
 		observer.observe(document.body, { childList: true, subtree: true });
+
+		// Resize Listener with Debounce
+		let resizeTimer;
+		window.addEventListener('resize', () => {
+			clearTimeout(resizeTimer);
+			resizeTimer = setTimeout(() => {
+				activeChameleons.forEach(({ wrapper, selectEl }) => {
+					// Momentarily show select to measure its responsive width
+					selectEl.style.display = 'inline-block';
+					const newWidth = selectEl.offsetWidth;
+					selectEl.style.display = 'none';
+					wrapper.style.setProperty('--ch-width', (newWidth || 200) + 'px');
+				});
+			}, 150);
+		});
 	};
 	
 	document.addEventListener('click', (e) => {
