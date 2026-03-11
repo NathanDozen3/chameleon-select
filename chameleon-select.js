@@ -57,7 +57,11 @@
 				opacity: 0.5;
 				font-size: 0.8em;
 				pointer-events: none;
-				transition: transform 0.2s;
+				transition: transform 0.2s ease;
+			}
+
+			.chameleon-wrapper.is-focused .chameleon-arrow {
+				transform: rotate(180deg);
 			}
 
 			.chameleon-menu {
@@ -83,10 +87,6 @@
 				border-radius: var(--ch-border-radius) var(--ch-border-radius) 0 0;
 			}
 
-			.chameleon-wrapper.is-focused.open-up .chameleon-arrow {
-				transform: rotate(180deg);
-			}
-
 			.chameleon-menu::-webkit-scrollbar {
 				width: 4px;
 			}
@@ -106,6 +106,11 @@
 			.chameleon-select-item:hover,
 			.chameleon-select-item.is-highlighted {
 				background-color: rgba(0,0,0,0.05) !important;
+			}
+
+			.chameleon-select-item.is-disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
 			}
 		`;
 		document.head.appendChild(style);
@@ -134,21 +139,19 @@
 			refInput.blur();
 			window.scrollTo(0, originalScroll);
 
-			const getPlaceholderColor = () => {
+			const placeholderColor = (() => {
 				const temp = document.createElement('input');
 				temp.placeholder = 't';
 				temp.style.cssText = "position:fixed; opacity:0; pointer-events:none;";
 				parentForm.appendChild(temp);
-				const pseudoColor = window.getComputedStyle(temp, '::placeholder').color;
+				const color = window.getComputedStyle(temp, '::placeholder').color;
 				parentForm.removeChild(temp);
-				return (!pseudoColor || pseudoColor === refStyle.color) 
+				return (!color || color === refStyle.color) 
 					? refStyle.color.replace('rgb', 'rgba').replace(')', ', 0.45)') 
-					: pseudoColor;
-			};
+					: color;
+			})();
 			
-			const placeholderColor = getPlaceholderColor();
 			const activeColor = refStyle.color;
-			
 			const wrapper = document.createElement('div');
 			wrapper.className = 'chameleon-wrapper open-down';
 			wrapper.tabIndex = 0;
@@ -159,7 +162,8 @@
 
 			const nativeLabel = selectEl.labels && selectEl.labels[0];
 			if (nativeLabel) {
-				wrapper.setAttribute('aria-label', nativeLabel.textContent);
+				if (!nativeLabel.id) nativeLabel.id = `chameleon-label-${instanceId}`;
+				wrapper.setAttribute('aria-labelledby', nativeLabel.id);
 			}
 
 			const trigger = document.createElement('div');
@@ -183,16 +187,14 @@
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
 				refStyle.backgroundColor === 'initial';
 
-			let cachedZIndex = 1;
-			const getDynamicZIndex = () => {
-				const siblings = parentForm.querySelectorAll('*');
-				siblings.forEach(el => {
+			const highestZ = (() => {
+				let max = 1;
+				parentForm.querySelectorAll('*').forEach(el => {
 					const z = parseInt(window.getComputedStyle(el).zIndex);
-					if (!isNaN(z) && z > cachedZIndex) cachedZIndex = z;
+					if (!isNaN(z) && z > max) max = z;
 				});
-				return cachedZIndex + 1;
-			};
-			const currentZ = getDynamicZIndex();
+				return max + 1;
+			})();
 
 			const calculatePositioning = () => {
 				const rect = wrapper.getBoundingClientRect();
@@ -225,7 +227,7 @@
 				'--ch-focus-offset': focusProps.outlineOffset,
 				'--ch-focus-shadow': focusProps.boxShadow,
 				'--ch-focus-border': focusProps.borderColor,
-				'--ch-z-index': currentZ,
+				'--ch-z-index': highestZ,
 				'--ch-max-height': '250px' 
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
@@ -238,7 +240,13 @@
 				item.setAttribute('role', 'option');
 				item.setAttribute('aria-selected', selectEl.selectedIndex === index);
 				
+				if (opt.disabled) {
+					item.classList.add('is-disabled');
+					item.setAttribute('aria-disabled', 'true');
+				}
+
 				item.onmousedown = (e) => {
+					if (opt.disabled) return e.preventDefault();
 					e.preventDefault(); 
 					selectByIndex(index);
 					closeMenu();
@@ -249,6 +257,8 @@
 
 			const selectByIndex = (index) => {
 				const opt = selectEl.options[index];
+				if (opt.disabled) return;
+
 				selectEl.selectedIndex = index;
 				textSpan.textContent = opt.text;
 				wrapper.style.setProperty('--ch-color', activeColor);
@@ -273,7 +283,7 @@
 			const toggleMenu = (e) => {
 				e.stopPropagation();
 				const isOpen = menu.style.display === 'block';
-				
+
 				if (!isOpen) {
 					const dynamicMaxHeight = calculatePositioning();
 					wrapper.style.setProperty('--ch-max-height', dynamicMaxHeight + 'px');
@@ -287,7 +297,7 @@
 			};
 
 			trigger.onclick = toggleMenu;
-			
+
 			wrapper.onfocus = () => {
 				calculatePositioning();
 				wrapper.classList.add('is-focused');
@@ -301,8 +311,20 @@
 				let currIndex = selectEl.selectedIndex;
 				switch(e.key) {
 					case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
-					case 'ArrowDown': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex < items.length - 1) selectByIndex(currIndex + 1); break;
-					case 'ArrowUp': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex > 0) selectByIndex(currIndex - 1); break;
+					case 'ArrowDown': 
+						e.preventDefault(); 
+						if(!isOpen) toggleMenu(e); 
+						let next = currIndex + 1;
+						while(next < items.length && selectEl.options[next].disabled) next++;
+						if(next < items.length) selectByIndex(next);
+						break;
+					case 'ArrowUp': 
+						e.preventDefault(); 
+						if(!isOpen) toggleMenu(e); 
+						let prev = currIndex - 1;
+						while(prev >= 0 && selectEl.options[prev].disabled) prev--;
+						if(prev >= 0) selectByIndex(prev);
+						break;
 					case 'Escape': closeMenu(); break;
 				}
 			};
