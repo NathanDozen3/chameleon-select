@@ -1,19 +1,15 @@
 window.Chameleon = (function() {
-  /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement }>} */
+  /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement, syncFromNative: Function }>} */
   const activeChameleons = new Map();
   /** @type {Map<Node, MutationObserver>} */
   const activeObservers = new Map();
-  
+
   let instanceCount = 0;
   let globalListenersInitialized = false;
   let isStylesInjected = false;
 
-  /**
-   * Internal: Inject alphabetized CSS variables and base styles
-   */
   const injectStyles = () => {
     if (document.getElementById('chameleon-select-styles') || isStylesInjected) return;
-
     const style = document.createElement('style');
     style.id = 'chameleon-select-styles';
     style.textContent = `
@@ -26,18 +22,13 @@ window.Chameleon = (function() {
         vertical-align: middle;
         width: var(--ch-width, 100%);
       }
-
-      .chameleon-wrapper:focus {
-        outline: none;
-      }
-      
+      .chameleon-wrapper:focus { outline: none; }
       .chameleon-wrapper.is-focused .chameleon-trigger {
         border-color: var(--ch-focus-border) !important;
         box-shadow: var(--ch-focus-shadow);
         outline: var(--ch-focus-outline);
         outline-offset: var(--ch-focus-offset);
       }
-
       .chameleon-trigger {
         align-items: center;
         background-color: var(--ch-bg);
@@ -53,14 +44,12 @@ window.Chameleon = (function() {
         padding: var(--ch-padding);
         transition: border-color 0.2s, box-shadow 0.2s;
       }
-
       .chameleon-text {
         overflow: hidden;
         pointer-events: none;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-
       .chameleon-arrow {
         font-size: 0.8em;
         margin-left: 8px;
@@ -68,11 +57,7 @@ window.Chameleon = (function() {
         pointer-events: none;
         transition: transform 0.2s ease;
       }
-
-      .chameleon-wrapper.is-focused .chameleon-arrow {
-        transform: rotate(180deg);
-      }
-
+      .chameleon-wrapper.is-focused .chameleon-arrow { transform: rotate(180deg); }
       .chameleon-menu {
         background-color: var(--ch-bg-fallback, #fff);
         border: var(--ch-border);
@@ -85,43 +70,32 @@ window.Chameleon = (function() {
         right: 0;
         z-index: var(--ch-z-index, 1);
       }
-
       .chameleon-wrapper.open-down .chameleon-menu {
         border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius);
         top: 100%;
       }
-      
       .chameleon-wrapper.open-up .chameleon-menu {
         bottom: 100%;
         border-radius: var(--ch-border-radius) var(--ch-border-radius) 0 0;
       }
-
-      .chameleon-menu::-webkit-scrollbar {
-        width: 4px;
-      }
-
+      .chameleon-menu::-webkit-scrollbar { width: 4px; }
       .chameleon-menu::-webkit-scrollbar-thumb {
         background: #ccc;
         border-radius: 10px;
       }
-
       .chameleon-select-item {
         color: var(--ch-color-item);
         cursor: pointer;
         padding: var(--ch-padding);
         transition: background 0.1s;
       }
-
-      .chameleon-select-item:hover,
-      .chameleon-select-item.is-highlighted {
+      .chameleon-select-item:hover, .chameleon-select-item.is-highlighted {
         background-color: rgba(0,0,0,0.05) !important;
       }
-
       .chameleon-select-item.is-disabled {
         cursor: not-allowed;
         opacity: 0.4;
       }
-
       .chameleon-group-label {
         background: rgba(0,0,0,0.02);
         font-size: 0.85em;
@@ -135,19 +109,16 @@ window.Chameleon = (function() {
     isStylesInjected = true;
   };
 
-  /**
-   * Internal: The core transformation logic
-   */
   const initInstance = (selectEl) => {
     if (selectEl.dataset.chameleonLoaded) return;
-    
+
     const parentForm = selectEl.closest('form') || document.body;
     const instanceId = ++instanceCount;
     const menuId = `chameleon-menu-${instanceId}`;
-    
+
     const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
     const refStyle = window.getComputedStyle(refInput);
-    
+
     const originalScroll = window.scrollY;
     refInput.focus({ preventScroll: true });
     const focusStyle = window.getComputedStyle(refInput);
@@ -173,7 +144,7 @@ window.Chameleon = (function() {
       }
       return color;
     })();
-    
+
     const activeColor = refStyle.color;
     const wrapper = document.createElement('div');
     wrapper.className = 'chameleon-wrapper open-down';
@@ -191,12 +162,8 @@ window.Chameleon = (function() {
 
     const trigger = document.createElement('div');
     trigger.className = 'chameleon-trigger';
-    const isPlaceholder = (selectEl.value === "" || (selectEl.options[selectEl.selectedIndex] && selectEl.options[selectEl.selectedIndex].disabled));
-
     const textSpan = document.createElement('span');
     textSpan.className = 'chameleon-text';
-    textSpan.textContent = selectEl.options[selectEl.selectedIndex] ? selectEl.options[selectEl.selectedIndex].text : '';
-
     const arrow = document.createElement('span');
     arrow.className = 'chameleon-arrow';
     arrow.innerHTML = '&#9662;';
@@ -206,37 +173,11 @@ window.Chameleon = (function() {
     menu.id = menuId;
     menu.setAttribute('role', 'listbox');
 
-    const isTransparent = refStyle.backgroundColor === 'transparent' || 
-      refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
-      refStyle.backgroundColor === 'initial';
-
-    const highestZ = (() => {
-      let max = 1;
-      parentForm.querySelectorAll('*').forEach(el => {
-        const z = parseInt(window.getComputedStyle(el).zIndex);
-        if (!isNaN(z) && z > max) max = z;
-      });
-      return max + 1;
-    })();
-
-    const calculatePositioning = () => {
-      const rect = wrapper.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const threshold = 300;
-      const shouldFlip = spaceBelow < threshold && spaceAbove > spaceBelow;
-      wrapper.classList.toggle('open-up', shouldFlip);
-      wrapper.classList.toggle('open-down', !shouldFlip);
-      const availableSpace = shouldFlip ? spaceAbove : spaceBelow;
-      return Math.max(availableSpace - 20, 150);
-    };
-
     const styles = {
       '--ch-bg': refStyle.backgroundColor,
-      '--ch-bg-fallback': isTransparent ? '#ffffff' : refStyle.backgroundColor,
+      '--ch-bg-fallback': (refStyle.backgroundColor === 'transparent' || refStyle.backgroundColor.includes('rgba(0, 0, 0, 0)')) ? '#fff' : refStyle.backgroundColor,
       '--ch-border': refStyle.border,
       '--ch-border-radius': refStyle.borderRadius,
-      '--ch-color': isPlaceholder ? placeholderColor : activeColor,
       '--ch-color-item': activeColor,
       '--ch-focus-border': focusProps.borderColor,
       '--ch-focus-offset': focusProps.outlineOffset,
@@ -246,29 +187,50 @@ window.Chameleon = (function() {
       '--ch-font-size': refStyle.fontSize,
       '--ch-height': refStyle.height,
       '--ch-line-height': refStyle.lineHeight,
-      '--ch-max-height': '250px',
       '--ch-padding': refStyle.padding,
       '--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
-      '--ch-z-index': highestZ
+      // Default to 999 to avoid expensive DOM scans; manually override via CSS if needed.
+      '--ch-z-index': 999
     };
     for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
-    
+
     const itemRefs = [];
+
+    const syncFromNative = () => {
+      const index = selectEl.selectedIndex;
+      const opt = selectEl.options[index];
+      if (!opt) return;
+
+      textSpan.textContent = opt.text;
+      const isPlaceholder = opt.disabled || selectEl.value === "";
+      wrapper.style.setProperty('--ch-color', isPlaceholder ? placeholderColor : activeColor);
+      wrapper.setAttribute('aria-activedescendant', itemRefs[index]?.id || '');
+
+      itemRefs.forEach((item, i) => {
+        item.setAttribute('aria-selected', i === index ? 'true' : 'false');
+        item.classList.toggle('is-highlighted', i === index);
+        if (i === index && menu.style.display === 'block') {
+          item.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    };
+
     const createItem = (opt, index) => {
       const item = document.createElement('div');
       item.className = 'chameleon-select-item';
       item.id = `${menuId}-opt-${index}`;
       item.textContent = opt.text;
       item.setAttribute('role', 'option');
-      item.setAttribute('aria-selected', selectEl.selectedIndex === index);
+      item.setAttribute('aria-selected', 'false');
       if (opt.disabled) {
         item.classList.add('is-disabled');
         item.setAttribute('aria-disabled', 'true');
       }
       item.onmousedown = (e) => {
         if (opt.disabled) return e.preventDefault();
-        e.preventDefault(); 
-        selectByIndex(index);
+        e.preventDefault();
+        selectEl.selectedIndex = index;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
         closeMenu();
       };
       menu.appendChild(item);
@@ -292,47 +254,58 @@ window.Chameleon = (function() {
       });
     };
 
-    const selectByIndex = (index) => {
-      const opt = selectEl.options[index];
-      if (!opt || opt.disabled) return;
-      selectEl.selectedIndex = index;
-      textSpan.textContent = opt.text;
-      wrapper.style.setProperty('--ch-color', activeColor);
-      wrapper.setAttribute('aria-activedescendant', itemRefs[index].id);
-      itemRefs.forEach((item, i) => item.setAttribute('aria-selected', i === index));
-      selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-      itemRefs.forEach(i => i.classList.remove('is-highlighted'));
-      itemRefs[index].classList.add('is-highlighted');
-      if (menu.style.display === 'block') {
-        itemRefs[index].scrollIntoView({ block: 'nearest' });
-      }
-    };
-
     const closeMenu = () => {
       menu.style.display = 'none';
       wrapper.classList.remove('is-focused');
       wrapper.setAttribute('aria-expanded', 'false');
     };
-    
+
     const toggleMenu = (e) => {
       e.stopPropagation();
       const isOpen = menu.style.display === 'block';
       if (!isOpen) {
-        const dynamicMaxHeight = calculatePositioning();
-        wrapper.style.setProperty('--ch-max-height', dynamicMaxHeight + 'px');
+        const rect = wrapper.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const threshold = 300;
+        const shouldFlip = spaceBelow < threshold && spaceAbove > spaceBelow;
+        wrapper.classList.toggle('open-up', shouldFlip);
+        wrapper.classList.toggle('open-down', !shouldFlip);
+        wrapper.style.setProperty('--ch-max-height', (Math.max(shouldFlip ? spaceAbove : spaceBelow, 150) - 20) + 'px');
+
         menu.style.display = 'block';
         wrapper.classList.add('is-focused');
         wrapper.setAttribute('aria-expanded', 'true');
-        wrapper.setAttribute('aria-activedescendant', itemRefs[selectEl.selectedIndex].id);
+        syncFromNative();
       } else {
         closeMenu();
       }
     };
 
+    const originalDescriptors = {
+      selectedIndex: Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex'),
+      value: Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
+    };
+
+    ['selectedIndex', 'value'].forEach(prop => {
+      Object.defineProperty(selectEl, prop, {
+        get() { return originalDescriptors[prop].get.call(this); },
+        set(val) {
+          originalDescriptors[prop].set.call(this, val);
+          syncFromNative();
+        },
+        configurable: true
+      });
+    });
+
+    selectEl.addEventListener('change', syncFromNative);
+
     buildMenu();
+    syncFromNative();
+
     trigger.onclick = toggleMenu;
-    wrapper.onfocus = () => { calculatePositioning(); wrapper.classList.add('is-focused'); };
-    wrapper.onblur = () => { closeMenu(); };
+    wrapper.onfocus = () => wrapper.classList.add('is-focused');
+    wrapper.onblur = closeMenu;
 
     wrapper.onkeydown = (e) => {
       const isOpen = menu.style.display === 'block';
@@ -340,50 +313,53 @@ window.Chameleon = (function() {
       switch(e.key) {
         case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
         case 'ArrowDown': {
-          e.preventDefault(); 
-          if(!isOpen) toggleMenu(e); 
+          e.preventDefault();
+          if(!isOpen) toggleMenu(e);
           let next = currIndex + 1;
           while(next < itemRefs.length && selectEl.options[next].disabled) next++;
-          if(next < itemRefs.length) selectByIndex(next);
+          if(next < itemRefs.length) {
+            selectEl.selectedIndex = next;
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           break;
         }
         case 'ArrowUp': {
-          e.preventDefault(); 
-          if(!isOpen) toggleMenu(e); 
+          e.preventDefault();
+          if(!isOpen) toggleMenu(e);
           let prev = currIndex - 1;
           while(prev >= 0 && selectEl.options[prev].disabled) prev--;
-          if(prev >= 0) selectByIndex(prev);
+          if(prev >= 0) {
+            selectEl.selectedIndex = prev;
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           break;
         }
         case 'Escape': closeMenu(); break;
       }
     };
-    
+
     selectEl.style.display = 'none';
     trigger.append(textSpan, arrow);
     wrapper.append(trigger, menu);
     selectEl.parentNode.insertBefore(wrapper, selectEl);
-    
+
     selectEl.dataset.chameleonLoaded = "true";
-    activeChameleons.set(selectEl, { wrapper, selectEl });
+    activeChameleons.set(selectEl, { wrapper, selectEl, syncFromNative });
   };
 
-  /**
-   * Internal: Cleanup an instance
-   */
   const destroyInstance = (selectEl) => {
     const instance = activeChameleons.get(selectEl);
     if (instance) {
       instance.wrapper.remove();
       selectEl.style.display = '';
       delete selectEl.dataset.chameleonLoaded;
+      delete selectEl.selectedIndex;
+      delete selectEl.value;
+      selectEl.removeEventListener('change', instance.syncFromNative);
       activeChameleons.delete(selectEl);
     }
   };
 
-  /**
-   * Internal: Setup interaction listeners
-   */
   const setupGlobalListeners = () => {
     if (globalListenersInitialized) return;
 
@@ -401,7 +377,7 @@ window.Chameleon = (function() {
     });
 
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.chameleon-wrapper') && activeChameleons.size) {
+      if (!e.target.closest('.chameleon-wrapper')) {
         activeChameleons.forEach(inst => {
           inst.wrapper.querySelector('.chameleon-menu').style.display = 'none';
           inst.wrapper.classList.remove('is-focused');
@@ -413,62 +389,39 @@ window.Chameleon = (function() {
     globalListenersInitialized = true;
   };
 
-  const chameleonAPI = {
-    /**
-     * Initializes Chameleon Select on elements.
-     * @param {HTMLElement|Document|HTMLSelectElement} container - The root or specific select.
-     * @param {Object} [options={watch:true}]
-     */
+  const api = {
     init: function(container = document, options = {}) {
-      const { watch = true } = options; // Fix: Proper option destructuring
+      const { watch = true } = options;
       injectStyles();
       setupGlobalListeners();
-      
       const targets = container instanceof HTMLSelectElement ? [container] : container.querySelectorAll('select');
       targets.forEach(initInstance);
 
       if (watch) {
         const watchTarget = container instanceof HTMLSelectElement ? (container.parentNode || container) : container;
-        
-        // Fix: Disconnect existing observer for this node to prevent accumulation
-        if (activeObservers.has(watchTarget)) {
-          activeObservers.get(watchTarget).disconnect();
-        }
-
-        const observer = new MutationObserver(mutations => {
+        if (activeObservers.has(watchTarget)) activeObservers.get(watchTarget).disconnect();
+        const obs = new MutationObserver(mutations => {
           mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-              if (node.nodeName === 'SELECT') initInstance(node);
-              else if (node.querySelectorAll) node.querySelectorAll('select').forEach(initInstance);
+            m.addedNodes.forEach(n => {
+              if (n.nodeName === 'SELECT') initInstance(n);
+              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(initInstance);
             });
-            m.removedNodes.forEach(node => {
-              if (node.nodeName === 'SELECT') destroyInstance(node);
-              else if (node.querySelectorAll) node.querySelectorAll('select').forEach(destroyInstance);
+            m.removedNodes.forEach(n => {
+              if (n.nodeName === 'SELECT') destroyInstance(n);
+              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(destroyInstance);
             });
           });
         });
-
-        observer.observe(watchTarget, { childList: true, subtree: true });
-        activeObservers.set(watchTarget, observer);
+        obs.observe(watchTarget, { childList: true, subtree: true });
+        activeObservers.set(watchTarget, obs);
       }
     },
-
-    destroy: function(selectEl) {
-      destroyInstance(selectEl);
-    },
-
-    refresh: function(selectEl) {
-      destroyInstance(selectEl);
-      initInstance(selectEl);
-    }
+    destroy: destroyInstance,
+    refresh: (el) => { destroyInstance(el); api.init(el); }
   };
 
-  const autoInit = () => chameleonAPI.init();
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoInit);
-  } else {
-    autoInit();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init());
+  else api.init();
 
-  return chameleonAPI;
+  return api;
 })();
