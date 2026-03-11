@@ -1,4 +1,18 @@
-window.Chameleon = (function() {
+/**
+ * Chameleon Select v1.0.5
+ * A zero-config, style-sniffing custom select utility.
+ */
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.Chameleon = factory();
+  }
+}(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
   /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement, syncFromNative: Function }>} */
   const activeChameleons = new Map();
   /** @type {Map<Node, MutationObserver>} */
@@ -189,7 +203,6 @@ window.Chameleon = (function() {
       '--ch-line-height': refStyle.lineHeight,
       '--ch-padding': refStyle.padding,
       '--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
-      // Default to 999 to avoid expensive DOM scans; manually override via CSS if needed.
       '--ch-z-index': 999
     };
     for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
@@ -390,6 +403,7 @@ window.Chameleon = (function() {
   };
 
   const api = {
+    version: '1.0.5',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
@@ -420,8 +434,13 @@ window.Chameleon = (function() {
     refresh: (el) => { destroyInstance(el); api.init(el); }
   };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init());
-  else api.init();
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => api.init());
+    } else {
+      api.init();
+    }
+  }
 
   return api;
-})();
+}));

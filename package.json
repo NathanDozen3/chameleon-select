@@ -1,17 +1,19 @@
 {
   "name": "chameleon-select",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "A zero-config, style-sniffing custom select utility that adapts to your site's theme.",
   "main": "chameleon-select.js",
   "module": "chameleon-select.js",
   "files": [
     "chameleon-select.js",
-    "chameleon-select.min.js"
+    "chameleon-select.min.js",
+    "index.d.ts"
   ],
   "exports": {
     ".": {
       "import": "./chameleon-select.js",
-      "require": "./chameleon-select.js"
+      "require": "./chameleon-select.js",
+      "types": "./index.d.ts"
     }
   },
   "scripts": {
