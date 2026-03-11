@@ -65,7 +65,7 @@
 				right: 0;
 				z-index: var(--ch-z-index, 1);
 				display: none;
-				max-height: 250px;
+				max-height: var(--ch-max-height, 250px);
 				overflow-y: auto;
 				box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 				background-color: var(--ch-bg-fallback, #fff);
@@ -154,7 +154,6 @@
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
 				refStyle.backgroundColor === 'initial';
 
-			// Calculate dynamic z-index based on form siblings
 			const getDynamicZIndex = () => {
 				let highest = 1;
 				const siblings = parentForm.querySelectorAll('*');
@@ -163,6 +162,13 @@
 					if (!isNaN(z) && z > highest) highest = z;
 				});
 				return highest + 1;
+			};
+
+			// New helper to find available vertical space
+			const getAvailableSpace = () => {
+				const rect = wrapper.getBoundingClientRect();
+				const spaceBelow = window.innerHeight - rect.bottom - 20;// 20px padding from edge
+				return Math.max(spaceBelow, 150);// Minimum of 150px
 			};
 
 			const styles = {
@@ -182,7 +188,8 @@
 				'--ch-focus-offset': focusProps.outlineOffset,
 				'--ch-focus-shadow': focusProps.boxShadow,
 				'--ch-focus-border': focusProps.borderColor,
-				'--ch-z-index': getDynamicZIndex()
+				'--ch-z-index': getDynamicZIndex(),
+				'--ch-max-height': getAvailableSpace() + 'px'
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			
@@ -216,8 +223,9 @@
 				document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
 				
 				if (!isOpen) {
-					// Refresh z-index in case DOM changed
 					wrapper.style.setProperty('--ch-z-index', getDynamicZIndex());
+					// Update max-height right before showing the menu
+					wrapper.style.setProperty('--ch-max-height', getAvailableSpace() + 'px');
 					menu.style.display = 'block';
 					wrapper.classList.add('is-focused');
 				} else {
