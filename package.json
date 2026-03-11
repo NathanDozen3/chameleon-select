@@ -11,14 +11,16 @@
   ],
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "import": "./chameleon-select.js",
-      "require": "./chameleon-select.js",
-      "types": "./index.d.ts"
+      "require": "./chameleon-select.js"
     }
   },
   "scripts": {
     "minify": "terser chameleon-select.js -c -m -o chameleon-select.min.js",
-    "build": "npm run minify"
+    "build": "npm run minify",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui"
   },
   "keywords": [
     "select",
@@ -31,6 +33,7 @@
   "author": "Nathan Johnson",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
     "terser": "^5.20.1"
   }
 }
