@@ -25,6 +25,10 @@ Just include the script at the end of your `<body>`. It will automatically find 
 <script src="chameleon-select.min.js"></script>
 ```
 
+Currently, Chameleon Select is a **zero-config auto-initializer**. Just include the script at the end of your `<body>`, and it will handle the rest. 
+
+*Note: A manual Public API for fine-grained control is coming in v1.0.*
+
 ### Framework & SPA Compatibility
 Chameleon monitors the DOM. If you inject new selects via React, Vue, or HTMX, they will be transformed instantly without needing a manual re-initialization.
 
@@ -81,6 +85,26 @@ While Chameleon handles the "heavy lifting" of matching your theme, you can easi
   letter-spacing: 1px;
 }
 ```
+
+---
+
+## 🗺️ Roadmap
+
+We are currently working toward a stable **v1.0** release. Key priorities include:
+
+* **Public API:** Adding `init()`, `destroy()`, and `refresh()` methods for SPA compatibility.
+* **Programmatic Sync:** Ensuring the UI updates automatically when the native select is changed via JavaScript.
+* **Testing:** Implementing a Playwright suite for cross-browser accessibility and interaction testing.
+
+For a detailed look at upcoming features like **Multi-select**, **Type-ahead**, and **Framework Wrappers**, please see our [Full Roadmap](./ROADMAP.md).
+
+---
+
+## 🤝 Contributing
+
+Chameleon Select is an open-source project. If you'd like to help us reach our v1.0 milestones, feel free to open an issue or submit a pull request!
+
+---
 
 ## 📄 License
 
