@@ -1,6 +1,7 @@
 /**
  * Chameleon Select v1.0.5
  * A zero-config, style-sniffing custom select utility.
+ * Author: Nathan Johnson
  */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
@@ -123,9 +124,10 @@
     isStylesInjected = true;
   };
 
-  const initInstance = (selectEl) => {
+  const initInstance = (selectEl, options = {}) => {
     if (selectEl.dataset.chameleonLoaded) return;
 
+    const { sniff = true } = options;
     const parentForm = selectEl.closest('form') || document.body;
     const instanceId = ++instanceCount;
     const menuId = `chameleon-menu-${instanceId}`;
@@ -133,17 +135,26 @@
     const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
     const refStyle = window.getComputedStyle(refInput);
 
-    const originalScroll = window.scrollY;
-    refInput.focus({ preventScroll: true });
-    const focusStyle = window.getComputedStyle(refInput);
-    const focusProps = {
-      borderColor: focusStyle.borderColor,
-      boxShadow: focusStyle.boxShadow,
-      outline: focusStyle.outline,
-      outlineOffset: focusStyle.outlineOffset
+    let focusProps = {
+      borderColor: 'rgba(0,0,0,0.1)',
+      boxShadow: 'none',
+      outline: '1px solid currentColor',
+      outlineOffset: '2px'
     };
-    refInput.blur();
-    if (window.scrollY !== originalScroll) window.scrollTo(0, originalScroll);
+
+    if (sniff) {
+      const originalScroll = window.scrollY;
+      refInput.focus({ preventScroll: true });
+      const focusStyle = window.getComputedStyle(refInput);
+      focusProps = {
+        borderColor: focusStyle.borderColor,
+        boxShadow: focusStyle.boxShadow,
+        outline: focusStyle.outline,
+        outlineOffset: focusStyle.outlineOffset
+      };
+      refInput.blur();
+      if (window.scrollY !== originalScroll) window.scrollTo(0, originalScroll);
+    }
 
     const placeholderColor = (() => {
       const temp = document.createElement('input');
@@ -409,7 +420,7 @@
       injectStyles();
       setupGlobalListeners();
       const targets = container instanceof HTMLSelectElement ? [container] : container.querySelectorAll('select');
-      targets.forEach(initInstance);
+      targets.forEach(t => initInstance(t, options));
 
       if (watch) {
         const watchTarget = container instanceof HTMLSelectElement ? (container.parentNode || container) : container;
@@ -417,8 +428,8 @@
         const obs = new MutationObserver(mutations => {
           mutations.forEach(m => {
             m.addedNodes.forEach(n => {
-              if (n.nodeName === 'SELECT') initInstance(n);
-              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(initInstance);
+              if (n.nodeName === 'SELECT') initInstance(n, options);
+              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(sel => initInstance(sel, options));
             });
             m.removedNodes.forEach(n => {
               if (n.nodeName === 'SELECT') destroyInstance(n);
@@ -431,7 +442,7 @@
       }
     },
     destroy: destroyInstance,
-    refresh: (el) => { destroyInstance(el); api.init(el); }
+    refresh: (el, options = {}) => { destroyInstance(el); api.init(el, options); }
   };
 
   if (typeof document !== 'undefined') {
