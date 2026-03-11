@@ -56,11 +56,11 @@
 				opacity: 0.5;
 				font-size: 0.8em;
 				pointer-events: none;
+				transition: transform 0.2s;
 			}
 
 			.chameleon-menu {
 				position: absolute;
-				top: 100%;
 				left: 0;
 				right: 0;
 				z-index: var(--ch-z-index, 1);
@@ -70,7 +70,21 @@
 				box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 				background-color: var(--ch-bg-fallback, #fff);
 				border: var(--ch-border);
+			}
+
+			/* Positioning and Border Radius Logic */
+			.chameleon-wrapper.open-down .chameleon-menu {
+				top: 100%;
 				border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius);
+			}
+			
+			.chameleon-wrapper.open-up .chameleon-menu {
+				bottom: 100%;
+				border-radius: var(--ch-border-radius) var(--ch-border-radius) 0 0;
+			}
+
+			.chameleon-wrapper.is-focused.open-up .chameleon-arrow {
+				transform: rotate(180deg);
 			}
 
 			.chameleon-menu::-webkit-scrollbar {
@@ -132,7 +146,7 @@
 			const activeColor = refStyle.color;
 			
 			const wrapper = document.createElement('div');
-			wrapper.className = 'chameleon-wrapper';
+			wrapper.className = 'chameleon-wrapper open-down';
 			wrapper.tabIndex = 0; 
 
 			const trigger = document.createElement('div');
@@ -164,11 +178,20 @@
 				return highest + 1;
 			};
 
-			// New helper to find available vertical space
-			const getAvailableSpace = () => {
+			const calculatePositioning = () => {
 				const rect = wrapper.getBoundingClientRect();
-				const spaceBelow = window.innerHeight - rect.bottom - 20;// 20px padding from edge
-				return Math.max(spaceBelow, 150);// Minimum of 150px
+				const spaceBelow = window.innerHeight - rect.bottom;
+				const spaceAbove = rect.top;
+				const threshold = 300;
+				
+				// If space below is tight AND there's more space above, flip it
+				const shouldFlip = spaceBelow < threshold && spaceAbove > spaceBelow;
+				
+				wrapper.classList.toggle('open-up', shouldFlip);
+				wrapper.classList.toggle('open-down', !shouldFlip);
+
+				const availableSpace = shouldFlip ? spaceAbove : spaceBelow;
+				return Math.max(availableSpace - 20, 150);
 			};
 
 			const styles = {
@@ -189,7 +212,7 @@
 				'--ch-focus-shadow': focusProps.boxShadow,
 				'--ch-focus-border': focusProps.borderColor,
 				'--ch-z-index': getDynamicZIndex(),
-				'--ch-max-height': getAvailableSpace() + 'px'
+				'--ch-max-height': '250px' // Initial fallback
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			
@@ -223,9 +246,9 @@
 				document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
 				
 				if (!isOpen) {
+					const dynamicMaxHeight = calculatePositioning();
 					wrapper.style.setProperty('--ch-z-index', getDynamicZIndex());
-					// Update max-height right before showing the menu
-					wrapper.style.setProperty('--ch-max-height', getAvailableSpace() + 'px');
+					wrapper.style.setProperty('--ch-max-height', dynamicMaxHeight + 'px');
 					menu.style.display = 'block';
 					wrapper.classList.add('is-focused');
 				} else {
@@ -235,7 +258,10 @@
 
 			trigger.onclick = toggleMenu;
 			
-			wrapper.onfocus = () => wrapper.classList.add('is-focused');
+			wrapper.onfocus = () => {
+				calculatePositioning();
+				wrapper.classList.add('is-focused');
+			};
 			wrapper.onblur = () => {
 				wrapper.classList.remove('is-focused');
 				menu.style.display = 'none';
