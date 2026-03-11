@@ -9,13 +9,13 @@
 		style.id = 'chameleon-select-styles';
 		style.textContent = `
 			.chameleon-wrapper {
-				position: relative;
 				cursor: pointer;
 				display: inline-block;
+				font-family: var(--ch-font-family, inherit);
+				position: relative;
+				user-select: none;
 				vertical-align: middle;
 				width: var(--ch-width, 100%);
-				font-family: var(--ch-font-family, inherit);
-				user-select: none;
 			}
 
 			.chameleon-wrapper:focus {
@@ -23,39 +23,39 @@
 			}
 			
 			.chameleon-wrapper.is-focused .chameleon-trigger {
+				border-color: var(--ch-focus-border) !important;
+				box-shadow: var(--ch-focus-shadow);
 				outline: var(--ch-focus-outline);
 				outline-offset: var(--ch-focus-offset);
-				box-shadow: var(--ch-focus-shadow);
-				border-color: var(--ch-focus-border) !important;
 			}
 
 			.chameleon-trigger {
-				display: flex;
 				align-items: center;
-				justify-content: space-between;
 				background-color: var(--ch-bg);
 				border: var(--ch-border);
 				border-radius: var(--ch-border-radius);
-				padding: var(--ch-padding);
-				font-size: var(--ch-font-size);
-				height: var(--ch-height);
-				line-height: var(--ch-line-height);
 				box-sizing: border-box;
 				color: var(--ch-color);
+				display: flex;
+				font-size: var(--ch-font-size);
+				height: var(--ch-height);
+				justify-content: space-between;
+				line-height: var(--ch-line-height);
+				padding: var(--ch-padding);
 				transition: border-color 0.2s, box-shadow 0.2s;
 			}
 
 			.chameleon-text {
-				white-space: nowrap;
 				overflow: hidden;
-				text-overflow: ellipsis;
 				pointer-events: none;
+				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			.chameleon-arrow {
+				font-size: 0.8em;
 				margin-left: 8px;
 				opacity: 0.5;
-				font-size: 0.8em;
 				pointer-events: none;
 				transition: transform 0.2s ease;
 			}
@@ -65,21 +65,21 @@
 			}
 
 			.chameleon-menu {
-				position: absolute;
-				left: 0;
-				right: 0;
-				z-index: var(--ch-z-index, 1);
-				display: none;
-				max-height: var(--ch-max-height, 250px);
-				overflow-y: auto;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 				background-color: var(--ch-bg-fallback, #fff);
 				border: var(--ch-border);
+				box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+				display: none;
+				left: 0;
+				max-height: var(--ch-max-height, 250px);
+				overflow-y: auto;
+				position: absolute;
+				right: 0;
+				z-index: var(--ch-z-index, 1);
 			}
 
 			.chameleon-wrapper.open-down .chameleon-menu {
-				top: 100%;
 				border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius);
+				top: 100%;
 			}
 			
 			.chameleon-wrapper.open-up .chameleon-menu {
@@ -97,10 +97,10 @@
 			}
 
 			.chameleon-select-item {
-				padding: var(--ch-padding);
 				color: var(--ch-color-item);
-				transition: background 0.1s;
 				cursor: pointer;
+				padding: var(--ch-padding);
+				transition: background 0.1s;
 			}
 
 			.chameleon-select-item:hover,
@@ -109,16 +109,16 @@
 			}
 
 			.chameleon-select-item.is-disabled {
-				opacity: 0.4;
 				cursor: not-allowed;
+				opacity: 0.4;
 			}
 
 			.chameleon-group-label {
-				padding: var(--ch-padding);
+				background: rgba(0,0,0,0.02);
 				font-weight: bold;
 				font-size: 0.85em;
 				opacity: 0.7;
-				background: rgba(0,0,0,0.02);
+				padding: var(--ch-padding);
 				pointer-events: none;
 			}
 		`;
@@ -231,24 +231,24 @@
 			};
 
 			const styles = {
-				'--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
-				'--ch-font-family': refStyle.fontFamily,
 				'--ch-bg': refStyle.backgroundColor,
+				'--ch-bg-fallback': isTransparent ? '#ffffff' : refStyle.backgroundColor,
 				'--ch-border': refStyle.border,
 				'--ch-border-radius': refStyle.borderRadius,
-				'--ch-padding': refStyle.padding,
+				'--ch-color': isPlaceholder ? placeholderColor : activeColor,
+				'--ch-color-item': activeColor,
+				'--ch-focus-border': focusProps.borderColor,
+				'--ch-focus-offset': focusProps.outlineOffset,
+				'--ch-focus-outline': focusProps.outline,
+				'--ch-focus-shadow': focusProps.boxShadow,
+				'--ch-font-family': refStyle.fontFamily,
 				'--ch-font-size': refStyle.fontSize,
 				'--ch-height': refStyle.height,
 				'--ch-line-height': refStyle.lineHeight,
-				'--ch-color': isPlaceholder ? placeholderColor : activeColor,
-				'--ch-color-item': activeColor,
-				'--ch-bg-fallback': isTransparent ? '#ffffff' : refStyle.backgroundColor,
-				'--ch-focus-outline': focusProps.outline,
-				'--ch-focus-offset': focusProps.outlineOffset,
-				'--ch-focus-shadow': focusProps.boxShadow,
-				'--ch-focus-border': focusProps.borderColor,
-				'--ch-z-index': highestZ,
-				'--ch-max-height': '250px' 
+				'--ch-max-height': '250px',
+				'--ch-padding': refStyle.padding,
+				'--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
+				'--ch-z-index': highestZ
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			

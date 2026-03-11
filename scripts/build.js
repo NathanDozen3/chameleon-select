@@ -12,43 +12,40 @@ async function build() {
   const code = await fs.readFile(srcPath, 'utf8');
   const originalSize = Buffer.byteLength(code, 'utf8');
 
-  const result = await terser.minify(code, {
-    compress: true,
-    mangle: true,
+  const processed = code.replace(
+    /(style\.textContent\s*=\s*`)([^`]*?)(`)/,
+    (_, open, css) => `style.textContent = "${css
+      .replace(/[\t\n\r]+\s*/g, ' ')  // collapse whitespace
+      .replace(/\s*{\s*/g, '{')        // remove spaces around {
+      .replace(/\s*}\s*/g, '}')        // remove spaces around }
+      .replace(/\s*:\s*/g, ':')        // remove spaces around :
+      .replace(/\s*;\s*/g, ';')        // remove spaces around ;
+      .replace(/\s*,\s*/g, ',')        // remove spaces around ,
+      .replace(/"/g, '\\"')
+      .trim()}"`
+  );
+
+  const result = await terser.minify(processed, {
+    compress: { passes: 2 },
+    mangle: { toplevel: false },
     sourceMap: {
       filename: path.basename(outPath),
       url: path.basename(mapPath)
     }
   });
 
-  if (result.error) throw result.error;
+  await fs.writeFile(outPath, result.code + '\n', 'utf8');
+  await fs.writeFile(mapPath, result.map, 'utf8');
 
-  // Remove escaped newlines/tabs and any actual newline/tab characters
-  const cleaned = result.code
-    .replace(/\\n/g, '')
-    .replace(/\\t/g, '')
-    .replace(/\n/g, '')
-    .replace(/\t/g, '')
-    .replace(/\r/g, '');
+  const minifiedSize = Buffer.byteLength(result.code, 'utf8');
+  const gzippedSize = zlib.gzipSync(result.code).length;
 
-  const finalCode = cleaned + '\n//# sourceMappingURL=' + path.basename(mapPath) + '\n';
-  await fs.writeFile(outPath, finalCode, 'utf8');
-
-  if (result.map) {
-    await fs.writeFile(mapPath, result.map, 'utf8');
-    console.log('Warning: source map written but may be inaccurate after post-processing.');
-  }
-
-  const minifiedSize = Buffer.byteLength(finalCode, 'utf8');
-  const gzippedSize = zlib.gzipSync(finalCode).length;
-
-  console.log(`Wrote ${path.relative(process.cwd(), outPath)} and ${path.relative(process.cwd(), mapPath)}`);
+  console.log(`Wrote ${path.relative(process.cwd(), outPath)}`);
   console.log(`Original: ${format(originalSize)} → Minified: ${format(minifiedSize)} (gzipped: ${format(gzippedSize)})`);
 }
 
 function format(n) {
-  if (n < 1024) return `${n} B`;
-  return `${(n / 1024).toFixed(2)} KB`;
+  return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(2)} KB`;
 }
 
 build().catch(err => {
