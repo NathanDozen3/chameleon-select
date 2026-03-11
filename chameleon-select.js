@@ -112,12 +112,21 @@
 				opacity: 0.4;
 				cursor: not-allowed;
 			}
+
+			.chameleon-group-label {
+				padding: var(--ch-padding);
+				font-weight: bold;
+				font-size: 0.85em;
+				opacity: 0.7;
+				background: rgba(0,0,0,0.02);
+				pointer-events: none;
+			}
 		`;
 		document.head.appendChild(style);
 
 		const transform = (selectEl) => {
-			const parentForm = selectEl.closest('form');
-			if (!parentForm || selectEl.dataset.chameleonLoaded) return;
+			const parentForm = selectEl.closest('form') || document.body;
+			if (selectEl.dataset.chameleonLoaded) return;
 			selectEl.dataset.chameleonLoaded = "true";
 			
 			const instanceId = ++instanceCount;
@@ -137,7 +146,7 @@
 				borderColor: focusStyle.borderColor
 			};
 			refInput.blur();
-			window.scrollTo(0, originalScroll);
+			if (window.scrollY !== originalScroll) window.scrollTo(0, originalScroll);
 
 			const placeholderColor = (() => {
 				const temp = document.createElement('input');
@@ -146,9 +155,11 @@
 				parentForm.appendChild(temp);
 				const color = window.getComputedStyle(temp, '::placeholder').color;
 				parentForm.removeChild(temp);
-				return (!color || color === refStyle.color) 
-					? refStyle.color.replace('rgb', 'rgba').replace(')', ', 0.45)') 
-					: color;
+				if (!color || color === refStyle.color) {
+					const rgb = refStyle.color.match(/\d+/g);
+					return rgb ? `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.45)` : 'rgba(0,0,0,0.45)';
+				}
+				return color;
 			})();
 			
 			const activeColor = refStyle.color;
@@ -232,7 +243,8 @@
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			
-			const items = Array.from(selectEl.options).map((opt, index) => {
+			const itemRefs = [];
+			const createItem = (opt, index) => {
 				const item = document.createElement('div');
 				item.className = 'chameleon-select-item';
 				item.id = `${menuId}-opt-${index}`;
@@ -252,25 +264,41 @@
 					closeMenu();
 				};
 				menu.appendChild(item);
-				return item;
-			});
+				itemRefs.push(item);
+			};
+
+			const buildMenu = () => {
+				menu.innerHTML = '';
+				let flatIndex = 0;
+				Array.from(selectEl.children).forEach(child => {
+					if (child.tagName === 'OPTGROUP') {
+						const label = document.createElement('div');
+						label.className = 'chameleon-group-label';
+						label.textContent = child.label;
+						menu.appendChild(label);
+						Array.from(child.children).forEach(opt => createItem(opt, flatIndex++));
+					} else {
+						createItem(child, flatIndex++);
+					}
+				});
+			};
 
 			const selectByIndex = (index) => {
 				const opt = selectEl.options[index];
-				if (opt.disabled) return;
+				if (!opt || opt.disabled) return;
 
 				selectEl.selectedIndex = index;
 				textSpan.textContent = opt.text;
 				wrapper.style.setProperty('--ch-color', activeColor);
-				wrapper.setAttribute('aria-activedescendant', items[index].id);
-				items.forEach((item, i) => item.setAttribute('aria-selected', i === index));
+				wrapper.setAttribute('aria-activedescendant', itemRefs[index].id);
+				itemRefs.forEach((item, i) => item.setAttribute('aria-selected', i === index));
 				
 				selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-				items.forEach(i => i.classList.remove('is-highlighted'));
-				items[index].classList.add('is-highlighted');
+				itemRefs.forEach(i => i.classList.remove('is-highlighted'));
+				itemRefs[index].classList.add('is-highlighted');
 				
 				if (menu.style.display === 'block') {
-					items[index].scrollIntoView({ block: 'nearest' });
+					itemRefs[index].scrollIntoView({ block: 'nearest' });
 				}
 			};
 
@@ -290,12 +318,13 @@
 					menu.style.display = 'block';
 					wrapper.classList.add('is-focused');
 					wrapper.setAttribute('aria-expanded', 'true');
-					wrapper.setAttribute('aria-activedescendant', items[selectEl.selectedIndex].id);
+					wrapper.setAttribute('aria-activedescendant', itemRefs[selectEl.selectedIndex].id);
 				} else {
 					closeMenu();
 				}
 			};
 
+			buildMenu();
 			trigger.onclick = toggleMenu;
 
 			wrapper.onfocus = () => {
@@ -308,23 +337,25 @@
 
 			wrapper.onkeydown = (e) => {
 				const isOpen = menu.style.display === 'block';
-				let currIndex = selectEl.selectedIndex;
+				const currIndex = selectEl.selectedIndex;
 				switch(e.key) {
 					case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
-					case 'ArrowDown': 
+					case 'ArrowDown': {
 						e.preventDefault(); 
 						if(!isOpen) toggleMenu(e); 
 						let next = currIndex + 1;
-						while(next < items.length && selectEl.options[next].disabled) next++;
-						if(next < items.length) selectByIndex(next);
+						while(next < itemRefs.length && selectEl.options[next].disabled) next++;
+						if(next < itemRefs.length) selectByIndex(next);
 						break;
-					case 'ArrowUp': 
+					}
+					case 'ArrowUp': {
 						e.preventDefault(); 
 						if(!isOpen) toggleMenu(e); 
 						let prev = currIndex - 1;
 						while(prev >= 0 && selectEl.options[prev].disabled) prev--;
 						if(prev >= 0) selectByIndex(prev);
 						break;
+					}
 					case 'Escape': closeMenu(); break;
 				}
 			};
@@ -378,7 +409,7 @@
 	};
 	
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.chameleon-wrapper')) {
+		if (!e.target.closest('.chameleon-wrapper') && activeChameleons.length) {
 			document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
 			document.querySelectorAll('.chameleon-wrapper').forEach(w => {
 				w.classList.remove('is-focused');
