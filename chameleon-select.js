@@ -1,5 +1,5 @@
 (function() {
-	const activeChameleons = [];
+	let activeChameleons = [];
 	let instanceCount = 0;
 
 	const init = () => {
@@ -307,10 +307,26 @@
 		document.querySelectorAll('select').forEach(transform);
 		
 		const observer = new MutationObserver(mutations => {
-			mutations.forEach(m => m.addedNodes.forEach(node => {
-				if (node.nodeName === 'SELECT') transform(node);
-				else if (node.querySelectorAll) node.querySelectorAll('select').forEach(transform);
-			}));
+			mutations.forEach(m => {
+				m.addedNodes.forEach(node => {
+					if (node.nodeName === 'SELECT') transform(node);
+					else if (node.querySelectorAll) node.querySelectorAll('select').forEach(transform);
+				});
+				
+				m.removedNodes.forEach(node => {
+					const findAndPrune = (el) => {
+						const index = activeChameleons.findIndex(item => item.selectEl === el);
+						if (index !== -1) {
+							const { wrapper } = activeChameleons[index];
+							if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+							activeChameleons.splice(index, 1);
+						}
+					};
+
+					if (node.nodeName === 'SELECT') findAndPrune(node);
+					else if (node.querySelectorAll) node.querySelectorAll('select').forEach(findAndPrune);
+				});
+			});
 		});
 		observer.observe(document.body, { childList: true, subtree: true });
 
