@@ -13,7 +13,7 @@
 				cursor: pointer;
 				display: inline-block;
 				vertical-align: middle;
-				width: var(--ch-width, 200px);
+				width: var(--ch-width, 100%);
 				font-family: var(--ch-font-family, inherit);
 			}
 
@@ -195,7 +195,7 @@
 			};
 
 			const styles = {
-				'--ch-width': (selectEl.offsetWidth || 200) + 'px',
+				'--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
 				'--ch-font-family': refStyle.fontFamily,
 				'--ch-bg': refStyle.backgroundColor,
 				'--ch-border': refStyle.border,
@@ -212,7 +212,7 @@
 				'--ch-focus-shadow': focusProps.boxShadow,
 				'--ch-focus-border': focusProps.borderColor,
 				'--ch-z-index': getDynamicZIndex(),
-				'--ch-max-height': '250px' // Initial fallback
+				'--ch-max-height': '250px' 
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
 			
@@ -304,7 +304,7 @@
 					selectEl.style.display = 'inline-block';
 					const newWidth = selectEl.offsetWidth;
 					selectEl.style.display = 'none';
-					wrapper.style.setProperty('--ch-width', (newWidth || 200) + 'px');
+					wrapper.style.setProperty('--ch-width', newWidth ? newWidth + 'px' : '100%');
 				});
 			}, 150);
 		});
