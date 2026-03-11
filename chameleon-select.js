@@ -1,6 +1,6 @@
 (function() {
-	// Registry to track instances for resizing
 	const activeChameleons = [];
+	let instanceCount = 0;
 
 	const init = () => {
 		if (document.getElementById('chameleon-select-styles')) return;
@@ -72,7 +72,6 @@
 				border: var(--ch-border);
 			}
 
-			/* Positioning and Border Radius Logic */
 			.chameleon-wrapper.open-down .chameleon-menu {
 				top: 100%;
 				border-radius: 0 0 var(--ch-border-radius) var(--ch-border-radius);
@@ -114,6 +113,9 @@
 			if (!parentForm || selectEl.dataset.chameleonLoaded) return;
 			selectEl.dataset.chameleonLoaded = "true";
 			
+			const instanceId = ++instanceCount;
+			const menuId = `chameleon-menu-${instanceId}`;
+			
 			const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
 			const refStyle = window.getComputedStyle(refInput);
 			
@@ -147,7 +149,11 @@
 			
 			const wrapper = document.createElement('div');
 			wrapper.className = 'chameleon-wrapper open-down';
-			wrapper.tabIndex = 0; 
+			wrapper.tabIndex = 0;
+			wrapper.setAttribute('role', 'combobox');
+			wrapper.setAttribute('aria-haspopup', 'listbox');
+			wrapper.setAttribute('aria-expanded', 'false');
+			wrapper.setAttribute('aria-controls', menuId);
 
 			const trigger = document.createElement('div');
 			trigger.className = 'chameleon-trigger';
@@ -163,6 +169,8 @@
 
 			const menu = document.createElement('div');
 			menu.className = 'chameleon-menu';
+			menu.id = menuId;
+			menu.setAttribute('role', 'listbox');
 
 			const isTransparent = refStyle.backgroundColor === 'transparent' || 
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
@@ -184,9 +192,7 @@
 				const spaceAbove = rect.top;
 				const threshold = 300;
 				
-				// If space below is tight AND there's more space above, flip it
 				const shouldFlip = spaceBelow < threshold && spaceAbove > spaceBelow;
-				
 				wrapper.classList.toggle('open-up', shouldFlip);
 				wrapper.classList.toggle('open-down', !shouldFlip);
 
@@ -220,11 +226,13 @@
 				const item = document.createElement('div');
 				item.className = 'chameleon-select-item';
 				item.textContent = opt.text;
+				item.setAttribute('role', 'option');
+				item.setAttribute('aria-selected', selectEl.selectedIndex === index);
+				
 				item.onclick = (e) => {
 					e.stopPropagation();
 					selectByIndex(index);
-					menu.style.display = 'none';
-					wrapper.classList.remove('is-focused');
+					closeMenu();
 				};
 				menu.appendChild(item);
 				return item;
@@ -235,15 +243,27 @@
 				selectEl.selectedIndex = index;
 				textSpan.textContent = opt.text;
 				wrapper.style.setProperty('--ch-color', activeColor);
+				
+				// Update ARIA selection
+				items.forEach((item, i) => item.setAttribute('aria-selected', i === index));
+				
 				selectEl.dispatchEvent(new Event('change', { bubbles: true }));
 				items.forEach(i => i.classList.remove('is-highlighted'));
 				items[index].classList.add('is-highlighted');
+			};
+
+			const closeMenu = () => {
+				menu.style.display = 'none';
+				wrapper.classList.remove('is-focused');
+				wrapper.setAttribute('aria-expanded', 'false');
 			};
 			
 			const toggleMenu = (e) => {
 				e.stopPropagation();
 				const isOpen = menu.style.display === 'block';
-				document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
+				document.querySelectorAll('.chameleon-menu').forEach(m => {
+					if (m !== menu) m.style.display = 'none';
+				});
 				
 				if (!isOpen) {
 					const dynamicMaxHeight = calculatePositioning();
@@ -251,8 +271,9 @@
 					wrapper.style.setProperty('--ch-max-height', dynamicMaxHeight + 'px');
 					menu.style.display = 'block';
 					wrapper.classList.add('is-focused');
+					wrapper.setAttribute('aria-expanded', 'true');
 				} else {
-					menu.style.display = 'none';
+					closeMenu();
 				}
 			};
 
@@ -263,8 +284,7 @@
 				wrapper.classList.add('is-focused');
 			};
 			wrapper.onblur = () => {
-				wrapper.classList.remove('is-focused');
-				menu.style.display = 'none';
+				closeMenu();
 			}
 
 			wrapper.onkeydown = (e) => {
@@ -274,7 +294,7 @@
 					case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
 					case 'ArrowDown': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex < items.length - 1) selectByIndex(currIndex + 1); break;
 					case 'ArrowUp': e.preventDefault(); if(!isOpen) toggleMenu(e); if(currIndex > 0) selectByIndex(currIndex - 1); break;
-					case 'Escape': menu.style.display = 'none'; break;
+					case 'Escape': closeMenu(); break;
 				}
 			};
 			
@@ -313,7 +333,10 @@
 	document.addEventListener('click', (e) => {
 		if (!e.target.closest('.chameleon-wrapper')) {
 			document.querySelectorAll('.chameleon-menu').forEach(m => m.style.display = 'none');
-			document.querySelectorAll('.chameleon-wrapper').forEach(w => w.classList.remove('is-focused'));
+			document.querySelectorAll('.chameleon-wrapper').forEach(w => {
+				w.classList.remove('is-focused');
+				w.setAttribute('aria-expanded', 'false');
+			});
 		}
 	});
 	
