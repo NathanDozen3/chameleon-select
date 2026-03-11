@@ -135,6 +135,10 @@
 			const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
 			const refStyle = window.getComputedStyle(refInput);
 			
+			/** * Style Sniffing: We momentarily focus a sibling input to capture the active 
+			 * focus ring styles (outline, shadow, border) so the custom select perfectly 
+			 * matches the site's theme. originalScroll/preventScroll prevent jarring jumps.
+			 */
 			const originalScroll = window.scrollY;
 			refInput.focus({ preventScroll: true });
 			const focusStyle = window.getComputedStyle(refInput);
@@ -148,6 +152,10 @@
 			refInput.blur();
 			if (window.scrollY !== originalScroll) window.scrollTo(0, originalScroll);
 
+			/** * Placeholder Color: Since ::placeholder pseudo-elements aren't directly 
+			 * accessible via getComputedStyle, we append a temporary input to the local 
+			 * form context to inherit context-specific placeholder styles.
+			 */
 			const placeholderColor = (() => {
 				const temp = document.createElement('input');
 				temp.placeholder = 't';
@@ -194,6 +202,7 @@
 			menu.id = menuId;
 			menu.setAttribute('role', 'listbox');
 
+			// Fallback to white if background is transparent (standard for absolute menus)
 			const isTransparent = refStyle.backgroundColor === 'transparent' || 
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
 				refStyle.backgroundColor === 'initial';
@@ -257,6 +266,11 @@
 					item.setAttribute('aria-disabled', 'true');
 				}
 
+				/**
+				 * Use onmousedown + preventDefault to beat the 'blur' event.
+				 * This ensures the menu doesn't vanish before the click/selection 
+				 * logic finishes processing.
+				 */
 				item.onmousedown = (e) => {
 					if (opt.disabled) return e.preventDefault();
 					e.preventDefault(); 
@@ -343,6 +357,7 @@
 					case 'ArrowDown': {
 						e.preventDefault(); 
 						if(!isOpen) toggleMenu(e); 
+						// Skip over disabled options
 						let next = currIndex + 1;
 						while(next < itemRefs.length && selectEl.options[next].disabled) next++;
 						if(next < itemRefs.length) selectByIndex(next);
@@ -351,6 +366,7 @@
 					case 'ArrowUp': {
 						e.preventDefault(); 
 						if(!isOpen) toggleMenu(e); 
+						// Skip over disabled options
 						let prev = currIndex - 1;
 						while(prev >= 0 && selectEl.options[prev].disabled) prev--;
 						if(prev >= 0) selectByIndex(prev);
