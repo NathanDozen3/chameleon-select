@@ -138,9 +138,9 @@
 				const temp = document.createElement('input');
 				temp.placeholder = 't';
 				temp.style.cssText = "position:fixed; opacity:0; pointer-events:none;";
-				document.body.appendChild(temp);
+				parentForm.appendChild(temp);
 				const pseudoColor = window.getComputedStyle(temp, '::placeholder').color;
-				document.body.removeChild(temp);
+				parentForm.removeChild(temp);
 				return (!pseudoColor || pseudoColor === refStyle.color) 
 					? refStyle.color.replace('rgb', 'rgba').replace(')', ', 0.45)') 
 					: pseudoColor;
@@ -156,6 +156,11 @@
 			wrapper.setAttribute('aria-haspopup', 'listbox');
 			wrapper.setAttribute('aria-expanded', 'false');
 			wrapper.setAttribute('aria-controls', menuId);
+
+			const nativeLabel = selectEl.labels && selectEl.labels[0];
+			if (nativeLabel) {
+				wrapper.setAttribute('aria-label', nativeLabel.textContent);
+			}
 
 			const trigger = document.createElement('div');
 			trigger.className = 'chameleon-trigger';
@@ -178,15 +183,16 @@
 				refStyle.backgroundColor === 'rgba(0, 0, 0, 0)' || 
 				refStyle.backgroundColor === 'initial';
 
+			let cachedZIndex = 1;
 			const getDynamicZIndex = () => {
-				let highest = 1;
 				const siblings = parentForm.querySelectorAll('*');
 				siblings.forEach(el => {
 					const z = parseInt(window.getComputedStyle(el).zIndex);
-					if (!isNaN(z) && z > highest) highest = z;
+					if (!isNaN(z) && z > cachedZIndex) cachedZIndex = z;
 				});
-				return highest + 1;
+				return cachedZIndex + 1;
 			};
+			const currentZ = getDynamicZIndex();
 
 			const calculatePositioning = () => {
 				const rect = wrapper.getBoundingClientRect();
@@ -219,7 +225,7 @@
 				'--ch-focus-offset': focusProps.outlineOffset,
 				'--ch-focus-shadow': focusProps.boxShadow,
 				'--ch-focus-border': focusProps.borderColor,
-				'--ch-z-index': getDynamicZIndex(),
+				'--ch-z-index': currentZ,
 				'--ch-max-height': '250px' 
 			};
 			for (const [key, value] of Object.entries(styles)) { wrapper.style.setProperty(key, value); }
@@ -227,6 +233,7 @@
 			const items = Array.from(selectEl.options).map((opt, index) => {
 				const item = document.createElement('div');
 				item.className = 'chameleon-select-item';
+				item.id = `${menuId}-opt-${index}`;
 				item.textContent = opt.text;
 				item.setAttribute('role', 'option');
 				item.setAttribute('aria-selected', selectEl.selectedIndex === index);
@@ -245,12 +252,16 @@
 				selectEl.selectedIndex = index;
 				textSpan.textContent = opt.text;
 				wrapper.style.setProperty('--ch-color', activeColor);
-
+				wrapper.setAttribute('aria-activedescendant', items[index].id);
 				items.forEach((item, i) => item.setAttribute('aria-selected', i === index));
 				
 				selectEl.dispatchEvent(new Event('change', { bubbles: true }));
 				items.forEach(i => i.classList.remove('is-highlighted'));
 				items[index].classList.add('is-highlighted');
+				
+				if (menu.style.display === 'block') {
+					items[index].scrollIntoView({ block: 'nearest' });
+				}
 			};
 
 			const closeMenu = () => {
@@ -265,11 +276,11 @@
 				
 				if (!isOpen) {
 					const dynamicMaxHeight = calculatePositioning();
-					wrapper.style.setProperty('--ch-z-index', getDynamicZIndex());
 					wrapper.style.setProperty('--ch-max-height', dynamicMaxHeight + 'px');
 					menu.style.display = 'block';
 					wrapper.classList.add('is-focused');
 					wrapper.setAttribute('aria-expanded', 'true');
+					wrapper.setAttribute('aria-activedescendant', items[selectEl.selectedIndex].id);
 				} else {
 					closeMenu();
 				}
