@@ -15,6 +15,7 @@
 				vertical-align: middle;
 				width: var(--ch-width, 100%);
 				font-family: var(--ch-font-family, inherit);
+				user-select: none;
 			}
 
 			.chameleon-wrapper:focus {
@@ -98,7 +99,8 @@
 			.chameleon-select-item {
 				padding: var(--ch-padding);
 				color: var(--ch-color-item);
-				transition: background 0.2s;
+				transition: background 0.1s;
+				cursor: pointer;
 			}
 
 			.chameleon-select-item:hover,
@@ -229,8 +231,8 @@
 				item.setAttribute('role', 'option');
 				item.setAttribute('aria-selected', selectEl.selectedIndex === index);
 				
-				item.onclick = (e) => {
-					e.stopPropagation();
+				item.onmousedown = (e) => {
+					e.preventDefault(); 
 					selectByIndex(index);
 					closeMenu();
 				};
@@ -243,8 +245,7 @@
 				selectEl.selectedIndex = index;
 				textSpan.textContent = opt.text;
 				wrapper.style.setProperty('--ch-color', activeColor);
-				
-				// Update ARIA selection
+
 				items.forEach((item, i) => item.setAttribute('aria-selected', i === index));
 				
 				selectEl.dispatchEvent(new Event('change', { bubbles: true }));
@@ -261,9 +262,6 @@
 			const toggleMenu = (e) => {
 				e.stopPropagation();
 				const isOpen = menu.style.display === 'block';
-				document.querySelectorAll('.chameleon-menu').forEach(m => {
-					if (m !== menu) m.style.display = 'none';
-				});
 				
 				if (!isOpen) {
 					const dynamicMaxHeight = calculatePositioning();
