@@ -1,5 +1,5 @@
 /**
- * Chameleon Select v1.0.5
+ * Chameleon Select v1.1.0
  * A zero-config, style-sniffing custom select utility.
  * Author: Nathan Johnson
  */
@@ -306,6 +306,24 @@
       }
     };
 
+    let searchBuffer = '';
+    let searchTimer = null;
+
+    const handleTypeAhead = (key) => {
+      clearTimeout(searchTimer);
+      searchBuffer += key.toLowerCase();
+      searchTimer = setTimeout(() => { searchBuffer = ''; }, 500);
+
+      const matchIndex = Array.from(selectEl.options).findIndex((opt, idx) => {
+        return !opt.disabled && opt.text.toLowerCase().startsWith(searchBuffer);
+      });
+
+      if (matchIndex !== -1) {
+        selectEl.selectedIndex = matchIndex;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+
     const originalDescriptors = {
       selectedIndex: Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex'),
       value: Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
@@ -334,6 +352,12 @@
     wrapper.onkeydown = (e) => {
       const isOpen = menu.style.display === 'block';
       const currIndex = selectEl.selectedIndex;
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && e.key !== ' ') {
+        handleTypeAhead(e.key);
+        return;
+      }
+
       switch(e.key) {
         case 'Enter': case ' ': e.preventDefault(); toggleMenu(e); break;
         case 'ArrowDown': {
@@ -414,13 +438,17 @@
   };
 
   const api = {
-    version: '1.0.5',
+    version: '1.1.0',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
       setupGlobalListeners();
       const targets = container instanceof HTMLSelectElement ? [container] : container.querySelectorAll('select');
-      targets.forEach(t => initInstance(t, options));
+
+      targets.forEach(t => {
+        if (t.dataset.chameleon === 'false') return;
+        initInstance(t, options);
+      });
 
       if (watch) {
         const watchTarget = container instanceof HTMLSelectElement ? (container.parentNode || container) : container;
@@ -428,8 +456,8 @@
         const obs = new MutationObserver(mutations => {
           mutations.forEach(m => {
             m.addedNodes.forEach(n => {
-              if (n.nodeName === 'SELECT') initInstance(n, options);
-              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(sel => initInstance(sel, options));
+              if (n.nodeName === 'SELECT' && n.dataset.chameleon !== 'false') initInstance(n, options);
+              else if (n.querySelectorAll) n.querySelectorAll('select:not([data-chameleon="false"])').forEach(sel => initInstance(sel, options));
             });
             m.removedNodes.forEach(n => {
               if (n.nodeName === 'SELECT') destroyInstance(n);
