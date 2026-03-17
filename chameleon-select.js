@@ -1,5 +1,5 @@
 /**
- * Chameleon Select v1.1.1
+ * Chameleon Select v1.1.2
  * A zero-config, style-sniffing custom select utility.
  * Author: Nathan Johnson
  */
@@ -16,6 +16,8 @@
 
   /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement, syncFromNative: Function, options: Object }>} */
   const activeChameleons = new Map();
+  /** @type {Map<HTMLSelectElement, Object>} */
+  const allTrackedElements = new Map(); // Tracks everything initialized + their options
   /** @type {Map<Node, MutationObserver>} */
   const activeObservers = new Map();
 
@@ -126,6 +128,11 @@
 
   const initInstance = (selectEl, options = {}) => {
     const { mobileBreakpoint = 768 } = options;
+
+    // Always track it so we can re-init on resize
+    allTrackedElements.set(selectEl, options);
+
+    // Breakpoint Check: Fallback to native if screen is too small
     if (window.innerWidth < mobileBreakpoint) return;
 
     if (selectEl.dataset.chameleonLoaded) return;
@@ -418,22 +425,25 @@
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        activeChameleons.forEach((inst, selectEl) => {
-          const { mobileBreakpoint = 768 } = inst.options;
+        // Iterate through ALL elements we've ever touched
+        allTrackedElements.forEach((options, selectEl) => {
+          const { mobileBreakpoint = 768 } = options;
+          const isCurrentlyLoaded = selectEl.dataset.chameleonLoaded === "true";
 
-          // Breakpoint logic: toggle custom UI based on width
           if (window.innerWidth < mobileBreakpoint) {
-             destroyInstance(selectEl);
+             if (isCurrentlyLoaded) destroyInstance(selectEl);
           } else {
-             // If it's desktop width but the custom UI isn't loaded, load it.
-             if (!selectEl.dataset.chameleonLoaded) {
-               initInstance(selectEl, inst.options);
+             if (!isCurrentlyLoaded) {
+               initInstance(selectEl, options);
              } else {
-               // Normal resize width update
-               inst.selectEl.style.display = 'inline-block';
-               const newWidth = inst.selectEl.offsetWidth;
-               inst.selectEl.style.display = 'none';
-               inst.wrapper.style.setProperty('--ch-width', newWidth ? newWidth + 'px' : '100%');
+               // Update width if it's already desktop
+               const inst = activeChameleons.get(selectEl);
+               if (inst) {
+                 inst.selectEl.style.display = 'inline-block';
+                 const newWidth = inst.selectEl.offsetWidth;
+                 inst.selectEl.style.display = 'none';
+                 inst.wrapper.style.setProperty('--ch-width', newWidth ? newWidth + 'px' : '100%');
+               }
              }
           }
         });
@@ -443,7 +453,8 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.chameleon-wrapper')) {
         activeChameleons.forEach(inst => {
-          inst.wrapper.querySelector('.chameleon-menu').style.display = 'none';
+          const m = inst.wrapper.querySelector('.chameleon-menu');
+          if (m) m.style.display = 'none';
           inst.wrapper.classList.remove('is-focused');
           inst.wrapper.setAttribute('aria-expanded', 'false');
         });
@@ -453,8 +464,8 @@
     globalListenersInitialized = true;
   };
 
-  const api = {
-    version: '1.1.1',
+  const chameleonAPI = {
+    version: '1.1.2',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
@@ -476,8 +487,15 @@
               else if (n.querySelectorAll) n.querySelectorAll('select:not([data-chameleon="false"])').forEach(sel => initInstance(sel, options));
             });
             m.removedNodes.forEach(n => {
-              if (n.nodeName === 'SELECT') destroyInstance(n);
-              else if (n.querySelectorAll) n.querySelectorAll('select').forEach(destroyInstance);
+              if (n.nodeName === 'SELECT') {
+                destroyInstance(n);
+                allTrackedElements.delete(n); // Stop tracking if element is gone
+              } else if (n.querySelectorAll) {
+                n.querySelectorAll('select').forEach(sel => {
+                  destroyInstance(sel);
+                  allTrackedElements.delete(sel);
+                });
+              }
             });
           });
         });
@@ -485,17 +503,20 @@
         activeObservers.set(watchTarget, obs);
       }
     },
-    destroy: destroyInstance,
-    refresh: (el, options = {}) => { destroyInstance(el); api.init(el, options); }
+    destroy: (selectEl) => {
+      destroyInstance(selectEl);
+      allTrackedElements.delete(selectEl);
+    },
+    refresh: (el, options = {}) => { destroyInstance(el); chameleonAPI.init(el, options); }
   };
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => api.init());
+      document.addEventListener('DOMContentLoaded', () => chameleonAPI.init());
     } else {
-      api.init();
+      chameleonAPI.init();
     }
   }
 
-  return api;
+  return chameleonAPI;
 }));
