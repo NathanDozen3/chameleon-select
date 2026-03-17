@@ -1,5 +1,5 @@
 /**
- * Chameleon Select v1.1.0
+ * Chameleon Select v1.1.1
  * A zero-config, style-sniffing custom select utility.
  * Author: Nathan Johnson
  */
@@ -14,7 +14,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement, syncFromNative: Function }>} */
+  /** @type {Map<HTMLSelectElement, { wrapper: HTMLElement, selectEl: HTMLSelectElement, syncFromNative: Function, options: Object }>} */
   const activeChameleons = new Map();
   /** @type {Map<Node, MutationObserver>} */
   const activeObservers = new Map();
@@ -125,6 +125,9 @@
   };
 
   const initInstance = (selectEl, options = {}) => {
+    const { mobileBreakpoint = 768 } = options;
+    if (window.innerWidth < mobileBreakpoint) return;
+
     if (selectEl.dataset.chameleonLoaded) return;
 
     const { sniff = true } = options;
@@ -392,7 +395,7 @@
     selectEl.parentNode.insertBefore(wrapper, selectEl);
 
     selectEl.dataset.chameleonLoaded = "true";
-    activeChameleons.set(selectEl, { wrapper, selectEl, syncFromNative });
+    activeChameleons.set(selectEl, { wrapper, selectEl, syncFromNative, options });
   };
 
   const destroyInstance = (selectEl) => {
@@ -415,11 +418,24 @@
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        activeChameleons.forEach((inst) => {
-          inst.selectEl.style.display = 'inline-block';
-          const newWidth = inst.selectEl.offsetWidth;
-          inst.selectEl.style.display = 'none';
-          inst.wrapper.style.setProperty('--ch-width', newWidth ? newWidth + 'px' : '100%');
+        activeChameleons.forEach((inst, selectEl) => {
+          const { mobileBreakpoint = 768 } = inst.options;
+
+          // Breakpoint logic: toggle custom UI based on width
+          if (window.innerWidth < mobileBreakpoint) {
+             destroyInstance(selectEl);
+          } else {
+             // If it's desktop width but the custom UI isn't loaded, load it.
+             if (!selectEl.dataset.chameleonLoaded) {
+               initInstance(selectEl, inst.options);
+             } else {
+               // Normal resize width update
+               inst.selectEl.style.display = 'inline-block';
+               const newWidth = inst.selectEl.offsetWidth;
+               inst.selectEl.style.display = 'none';
+               inst.wrapper.style.setProperty('--ch-width', newWidth ? newWidth + 'px' : '100%');
+             }
+          }
         });
       }, 150);
     });
@@ -438,7 +454,7 @@
   };
 
   const api = {
-    version: '1.1.0',
+    version: '1.1.1',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
