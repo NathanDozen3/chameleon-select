@@ -1,5 +1,5 @@
 /**
- * Chameleon Select v1.1.3
+ * Chameleon Select v1.1.4
  * A zero-config, style-sniffing custom select utility.
  * Author: Nathan Johnson
  */
@@ -151,6 +151,7 @@
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '14px',
       height: '36px',
+      lineHeight: 'normal',
       padding: '0 12px'
     };
 
@@ -229,7 +230,7 @@
       '--ch-font-family': isSelfSniff ? DEFAULTS.fontFamily : refStyle.fontFamily,
       '--ch-font-size': isSelfSniff ? DEFAULTS.fontSize : refStyle.fontSize,
       '--ch-height': isSelfSniff ? DEFAULTS.height : refStyle.height,
-      '--ch-line-height': isSelfSniff ? DEFAULTS.height : refStyle.lineHeight,
+      '--ch-line-height': isSelfSniff ? DEFAULTS.lineHeight : refStyle.lineHeight,
       '--ch-padding': isSelfSniff ? DEFAULTS.padding : refStyle.padding,
       '--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
       '--ch-z-index': 999
@@ -332,13 +333,15 @@
       searchBuffer += key.toLowerCase();
       searchTimer = setTimeout(() => { searchBuffer = ''; }, 500);
 
-      const matchIndex = Array.from(selectEl.options).findIndex((opt, idx) => {
+      const matchIndex = Array.from(selectEl.options).findIndex((opt) => {
         return !opt.disabled && opt.text.toLowerCase().startsWith(searchBuffer);
       });
 
       if (matchIndex !== -1) {
         selectEl.selectedIndex = matchIndex;
         selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        // Open menu on type if closed to provide visual feedback (Native behavior)
+        if (menu.style.display !== 'block') toggleMenu({ stopPropagation: () => {} });
       }
     };
 
@@ -423,6 +426,7 @@
       delete selectEl.value;
       selectEl.removeEventListener('change', instance.syncFromNative);
       activeChameleons.delete(selectEl);
+      // NOTE: allTrackedElements is managed by api.destroy or the MutationObserver
     }
   };
 
@@ -471,7 +475,7 @@
   };
 
   const chameleonAPI = {
-    version: '1.1.3',
+    version: '1.1.4',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
