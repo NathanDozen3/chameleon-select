@@ -1,5 +1,5 @@
 /**
- * Chameleon Select v1.1.2
+ * Chameleon Select v1.1.3
  * A zero-config, style-sniffing custom select utility.
  * Author: Nathan Johnson
  */
@@ -129,12 +129,9 @@
   const initInstance = (selectEl, options = {}) => {
     const { mobileBreakpoint = 768 } = options;
 
-    // Always track it so we can re-init on resize
     allTrackedElements.set(selectEl, options);
 
-    // Breakpoint Check: Fallback to native if screen is too small
     if (window.innerWidth < mobileBreakpoint) return;
-
     if (selectEl.dataset.chameleonLoaded) return;
 
     const { sniff = true } = options;
@@ -144,15 +141,27 @@
 
     const refInput = parentForm.querySelector('input[type="text"], textarea, input:not([type])') || selectEl;
     const refStyle = window.getComputedStyle(refInput);
+    const isSelfSniff = refInput === selectEl;
 
-    let focusProps = {
-      borderColor: 'rgba(0,0,0,0.1)',
-      boxShadow: 'none',
-      outline: '1px solid currentColor',
-      outlineOffset: '2px'
+    const DEFAULTS = {
+      bg: '#ffffff',
+      border: '1px solid #d1d1d1',
+      borderRadius: '4px',
+      color: '#1a1a1a',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '14px',
+      height: '36px',
+      padding: '0 12px'
     };
 
-    if (sniff) {
+    let focusProps = {
+      borderColor: '#4a90e2',
+      boxShadow: '0 0 0 2px rgba(74, 144, 226, 0.2)',
+      outline: 'none',
+      outlineOffset: '0'
+    };
+
+    if (sniff && !isSelfSniff) {
       const originalScroll = window.scrollY;
       refInput.focus({ preventScroll: true });
       const focusStyle = window.getComputedStyle(refInput);
@@ -167,20 +176,19 @@
     }
 
     const placeholderColor = (() => {
-      const temp = document.createElement('input');
-      temp.placeholder = 't';
-      temp.style.cssText = "position:fixed; opacity:0; pointer-events:none;";
-      parentForm.appendChild(temp);
-      const color = window.getComputedStyle(temp, '::placeholder').color;
-      parentForm.removeChild(temp);
-      if (!color || color === refStyle.color) {
-        const rgb = refStyle.color.match(/\d+/g);
-        return rgb ? `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.45)` : 'rgba(0,0,0,0.45)';
+      if (!isSelfSniff) {
+        const temp = document.createElement('input');
+        temp.placeholder = 't';
+        temp.style.cssText = "position:fixed; opacity:0; pointer-events:none;";
+        parentForm.appendChild(temp);
+        const color = window.getComputedStyle(temp, '::placeholder').color;
+        parentForm.removeChild(temp);
+        return color || 'rgba(0,0,0,0.45)';
       }
-      return color;
+      return 'rgba(0,0,0,0.45)';
     })();
 
-    const activeColor = refStyle.color;
+    const activeColor = isSelfSniff ? DEFAULTS.color : refStyle.color;
     const wrapper = document.createElement('div');
     wrapper.className = 'chameleon-wrapper open-down';
     wrapper.tabIndex = 0;
@@ -209,20 +217,20 @@
     menu.setAttribute('role', 'listbox');
 
     const styles = {
-      '--ch-bg': refStyle.backgroundColor,
-      '--ch-bg-fallback': (refStyle.backgroundColor === 'transparent' || refStyle.backgroundColor.includes('rgba(0, 0, 0, 0)')) ? '#fff' : refStyle.backgroundColor,
-      '--ch-border': refStyle.border,
-      '--ch-border-radius': refStyle.borderRadius,
+      '--ch-bg': isSelfSniff ? DEFAULTS.bg : refStyle.backgroundColor,
+      '--ch-bg-fallback': isSelfSniff ? DEFAULTS.bg : (refStyle.backgroundColor.includes('rgba(0, 0, 0, 0)') ? '#fff' : refStyle.backgroundColor),
+      '--ch-border': isSelfSniff ? DEFAULTS.border : refStyle.border,
+      '--ch-border-radius': isSelfSniff ? DEFAULTS.borderRadius : refStyle.borderRadius,
       '--ch-color-item': activeColor,
       '--ch-focus-border': focusProps.borderColor,
       '--ch-focus-offset': focusProps.outlineOffset,
       '--ch-focus-outline': focusProps.outline,
       '--ch-focus-shadow': focusProps.boxShadow,
-      '--ch-font-family': refStyle.fontFamily,
-      '--ch-font-size': refStyle.fontSize,
-      '--ch-height': refStyle.height,
-      '--ch-line-height': refStyle.lineHeight,
-      '--ch-padding': refStyle.padding,
+      '--ch-font-family': isSelfSniff ? DEFAULTS.fontFamily : refStyle.fontFamily,
+      '--ch-font-size': isSelfSniff ? DEFAULTS.fontSize : refStyle.fontSize,
+      '--ch-height': isSelfSniff ? DEFAULTS.height : refStyle.height,
+      '--ch-line-height': isSelfSniff ? DEFAULTS.height : refStyle.lineHeight,
+      '--ch-padding': isSelfSniff ? DEFAULTS.padding : refStyle.padding,
       '--ch-width': selectEl.offsetWidth ? selectEl.offsetWidth + 'px' : '100%',
       '--ch-z-index': 999
     };
@@ -425,7 +433,6 @@
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        // Iterate through ALL elements we've ever touched
         allTrackedElements.forEach((options, selectEl) => {
           const { mobileBreakpoint = 768 } = options;
           const isCurrentlyLoaded = selectEl.dataset.chameleonLoaded === "true";
@@ -436,7 +443,6 @@
              if (!isCurrentlyLoaded) {
                initInstance(selectEl, options);
              } else {
-               // Update width if it's already desktop
                const inst = activeChameleons.get(selectEl);
                if (inst) {
                  inst.selectEl.style.display = 'inline-block';
@@ -465,7 +471,7 @@
   };
 
   const chameleonAPI = {
-    version: '1.1.2',
+    version: '1.1.3',
     init: function(container = document, options = {}) {
       const { watch = true } = options;
       injectStyles();
@@ -489,7 +495,7 @@
             m.removedNodes.forEach(n => {
               if (n.nodeName === 'SELECT') {
                 destroyInstance(n);
-                allTrackedElements.delete(n); // Stop tracking if element is gone
+                allTrackedElements.delete(n);
               } else if (n.querySelectorAll) {
                 n.querySelectorAll('select').forEach(sel => {
                   destroyInstance(sel);
