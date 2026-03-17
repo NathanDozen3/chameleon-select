@@ -12,36 +12,46 @@ async function build() {
   const code = await fs.readFile(srcPath, 'utf8');
   const originalSize = Buffer.byteLength(code, 'utf8');
 
-  const processed = code.replace(
-    /(style\.textContent\s*=\s*`)([^`]*?)(`)/,
-    (_, open, css) => `style.textContent = "${css
-      .replace(/[\t\n\r]+\s*/g, ' ')  // collapse whitespace
-      .replace(/\s*{\s*/g, '{')        // remove spaces around {
-      .replace(/\s*}\s*/g, '}')        // remove spaces around }
-      .replace(/\s*:\s*/g, ':')        // remove spaces around :
-      .replace(/\s*;\s*/g, ';')        // remove spaces around ;
-      .replace(/\s*,\s*/g, ',')        // remove spaces around ,
-      .replace(/"/g, '\\"')
-      .trim()}"`
-  );
-
-  const result = await terser.minify(processed, {
-    compress: { passes: 2 },
-    mangle: { toplevel: false },
+  const result = await terser.minify(code, {
+    compress: { passes: 3, unsafe: true, dead_code: true },
+    mangle: { toplevel: true },
+    format: { comments: false },
     sourceMap: {
       filename: path.basename(outPath),
       url: path.basename(mapPath)
     }
   });
 
-  await fs.writeFile(outPath, result.code + '\n', 'utf8');
+  // Terser serializes the CSS template literal as a JS string with \n \t escape
+  // sequences (literal backslash-n, not real newlines). We locate the string by
+  // the unique DOM id anchor, then strip and compress whitespace within it.
+  const output = result.code.replace(
+    /(chameleon-select-styles.*?\.textContent=")((?:\\n|\\t|[^"])*)(")/,
+    (_, pre, css, close) => {
+      const minified = css
+        .replace(/\\n/g, '')      // remove \n escape sequences
+        .replace(/\\t/g, '')      // remove \t escape sequences
+        .replace(/ {2,}/g, ' ')   // collapse multiple spaces
+        .replace(/ *([{}:;,]) */g, '$1') // remove spaces around CSS syntax
+        .trim();
+      return pre + minified + close;
+    }
+  );
+
+  if (output === result.code) {
+    console.warn('⚠️  Warning: CSS minification regex did not match.');
+  }
+
+  await fs.writeFile(outPath, output + '\n', 'utf8');
   await fs.writeFile(mapPath, result.map, 'utf8');
 
-  const minifiedSize = Buffer.byteLength(result.code, 'utf8');
-  const gzippedSize = zlib.gzipSync(result.code).length;
+  const minifiedSize = Buffer.byteLength(output, 'utf8');
+  const gzippedSize = zlib.gzipSync(output).length;
 
-  console.log(`Wrote ${path.relative(process.cwd(), outPath)}`);
-  console.log(`Original: ${format(originalSize)} → Minified: ${format(minifiedSize)} (gzipped: ${format(gzippedSize)})`);
+  console.log(`\n✅ Build Complete`);
+  console.log(`Original:  ${format(originalSize)}`);
+  console.log(`Minified:  ${format(minifiedSize)}`);
+  console.log(`Gzipped:   ${format(gzippedSize)}`);
 }
 
 function format(n) {

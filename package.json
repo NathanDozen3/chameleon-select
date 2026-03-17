@@ -2,8 +2,19 @@
   "name": "chameleon-select",
   "version": "1.0.5",
   "description": "A zero-config, style-sniffing custom select utility that adapts to your site's theme.",
-  "main": "chameleon-select.js",
-  "module": "chameleon-select.js",
+  "main": "chameleon-select.min.js",
+  "module": "chameleon-select.min.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NathanDozen3/chameleon-select"
+  },
+  "bugs": {
+    "url": "https://github.com/NathanDozen3/chameleon-select/issues"
+  },
+  "homepage": "https://github.com/NathanDozen3/chameleon-select#readme",
+  "engines": {
+    "node": ">=14"
+  },
   "files": [
     "chameleon-select.js",
     "chameleon-select.min.js",
@@ -17,8 +28,7 @@
     }
   },
   "scripts": {
-    "minify": "terser chameleon-select.js -c -m -o chameleon-select.min.js",
-    "build": "npm run minify",
+    "build": "node scripts/build.js",
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui"
   },
